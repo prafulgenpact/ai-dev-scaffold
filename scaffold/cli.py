@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from scaffold.generator import build_context, generate_project
+from scaffold.git import create_github_repo_and_push, has_gh_cli, has_git, init_and_commit
 from scaffold.presets import get_preset, list_presets
 
 PRESET_OPTIONS = list_presets()
@@ -166,6 +167,28 @@ def main() -> None:
     )
     files = generate_project(target, context)
     _print_summary(target, files)
+
+    # --- Git init ---
+    if has_git():
+        print("Setting up Git...")
+        git_ok = init_and_commit(target, answers["project_name"])
+
+        if git_ok and has_gh_cli():
+            push = _ask("Create a GitHub repo and push? (y/n)", "y")
+            if push.lower() == "y":
+                visibility = _ask("Repo visibility — private or public? (private/public)", "private")
+                slug = answers["project_name"].lower().replace(" ", "-")
+                create_github_repo_and_push(
+                    target=target,
+                    project_slug=slug,
+                    description=answers["description"],
+                    private=(visibility.lower() != "public"),
+                )
+        elif git_ok:
+            print("  GitHub CLI (gh) not found — skipping remote creation.")
+            print("  You can push manually: gh repo create <name> --source . --push")
+    else:
+        print("  Git not found — skipping repo initialization.")
 
 
 if __name__ == "__main__":
